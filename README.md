@@ -180,7 +180,3 @@ PROJECT/
 - Servers stay running between client connections; restart is not required between sessions
 - Only filenames are tracked — no file content is transferred
 - The `log` command stores up to 1024 operations in memory per session
-
----
-
-*Built by Shravya Shashidhar — EE450 Socket Programming, USC*
