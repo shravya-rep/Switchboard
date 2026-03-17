@@ -4,24 +4,26 @@ A simplified, GitHub-inspired file repository built entirely in C using UNIX soc
 
 ---
 
-## Architecture
+## Under the Hood
 
 ```
-                        ┌──────────┐
-                        │  Client  │
-                        └────┬─────┘
-                             │ TCP (port 25542)
-                        ┌────▼─────┐
-                        │ Server M │  ← central request router
-                        └──┬──┬──┬─┘
-               UDP          │  │  │          UDP
-          ┌─────────────────┘  │  └─────────────────┐
-          │               UDP  │                     │
-     ┌────▼─────┐    ┌─────────▼──┐    ┌────────────▼─┐
-     │ Server A │    │  Server R  │    │   Server D   │
-     │   Auth   │    │ Repository │    │  Deployment  │
-     │ UDP 21542│    │  UDP 22542 │    │  UDP 23542   │
-     └──────────┘    └────────────┘    └──────────────┘
+  ╔══════════════════════════════════════════════════════╗
+  ║                       CLIENT                         ║
+  ╚══════════════════════════════╤═══════════════════════╝
+                                 │
+                           TCP · 25542
+                                 │
+  ╔══════════════════════════════▼═══════════════════════╗
+  ║                     SERVER M                         ║
+  ║                  request router                      ║
+  ╚══════════╤════════════════╤══════════════╤═══════════╝
+             │                │              │
+        UDP · 21542      UDP · 22542    UDP · 23542
+             │                │              │
+  ╔══════════▼═══╗   ╔════════▼═════╗  ╔════▼══════════╗
+  ║   SERVER A   ║   ║   SERVER R   ║  ║   SERVER D    ║
+  ║     auth     ║   ║  repository  ║  ║  deployment   ║
+  ╚══════════════╝   ╚══════════════╝  ╚═══════════════╝
 ```
 
 - **Server M** receives all client requests over TCP and dispatches them to the appropriate backend server over UDP
