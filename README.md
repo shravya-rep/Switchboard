@@ -57,7 +57,7 @@ make all
 # As a guest (read-only access)
 ./client guest guest
 
-# As a registered member (credentials in PROJECT/members.txt)
+# As a registered member (credentials in members.txt)
 ./client <username> <password>
 ```
 
@@ -139,7 +139,7 @@ If a file already exists in the repository, Server R flags it and Server M relay
 ## Project Structure
 
 ```
-PROJECT/
+switchboard/
 ├── serverM.c / serverM.h   # Main server — TCP listener + UDP dispatcher
 ├── serverA.c / serverA.h   # Auth server — Caesar cipher + credential check
 ├── serverR.c / serverR.h   # Repo server — file metadata management
