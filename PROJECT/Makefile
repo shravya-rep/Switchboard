@@ -33,7 +33,7 @@ client.o:client.c client.h
 
 
 clean:
-	rm -f *.o main
+	rm -f *.o serverM serverA serverR serverD client
 
 
 

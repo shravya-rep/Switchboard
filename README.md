@@ -1,109 +1,186 @@
-## Overview
+# Git450 — Distributed File Repository System
 
-Git450 is a simplified and secure version of GitHub developed as part of the EE450 course to master UNIX socket programming. The system includes a client interface, a main server, and three backend servers to handle authentication, repository management, and deployment via both TCP and UDP sockets.
+A simplified, GitHub-inspired file repository built entirely in C using UNIX sockets. Five processes communicate over TCP and UDP to handle authentication, file management, and deployment across a distributed architecture.
 
-## System Components
+---
 
-- **Client (`client.c`)**  
-  Interfaces with the user and handles authentication and all commands.
+## Architecture
 
-- **Main Server (`serverM.c`)**  
-  Acts as a central dispatcher, routing requests to appropriate backend servers.
+```
+                        ┌──────────┐
+                        │  Client  │
+                        └────┬─────┘
+                             │ TCP (port 25542)
+                        ┌────▼─────┐
+                        │ Server M │  ← central request router
+                        └──┬──┬──┬─┘
+               UDP          │  │  │          UDP
+          ┌─────────────────┘  │  └─────────────────┐
+          │               UDP  │                     │
+     ┌────▼─────┐    ┌─────────▼──┐    ┌────────────▼─┐
+     │ Server A │    │  Server R  │    │   Server D   │
+     │   Auth   │    │ Repository │    │  Deployment  │
+     │ UDP 21542│    │  UDP 22542 │    │  UDP 23542   │
+     └──────────┘    └────────────┘    └──────────────┘
+```
 
-- **Authentication Server (`serverA.c`)**  
-  Verifies user credentials stored in `member.txt`.
+- **Server M** receives all client requests over TCP and dispatches them to the appropriate backend server over UDP
+- **Server A** validates credentials against an encrypted member store
+- **Server R** manages the file repository (lookup, push, remove)
+- **Server D** handles deployment and logs results to `deployed.txt`
+- **Client** connects once, authenticates, and enters either member or guest mode
 
-- **Repository Server (`serverR.c`)**  
-  Stores filenames and usernames in `filenames.txt`.
+---
 
-- **Deployment Server (`serverD.c`)**  
-  Simulates deployment and logs filenames in `deployed.txt`.
+## Quick Start
 
-## Supported User Commands
+### 1. Build
 
-### Member
-- `lookup <username>` — View own or another member's files.
-- `push <filename>` — Add a new file or overwrite an existing one.
-- `remove <filename>` — Remove a file from the repository.
-- `deploy` — Deploy all files belonging to the member.
-- `log` — (Extra credit) View operation history.
-
-### Guest
-- `lookup <username>` — View public files of any member.
-
-## Encryption Scheme
-
-Passwords are encrypted with a Caesar cipher:
-- Offset each letter/digit by 3 (circular wrap for letters and digits)
-- Case-sensitive
-- Special characters are unchanged
-
-**Example:**
-| Plaintext | Encrypted |
-|-----------|-----------|
-| Welcome1  | Zhofrph4  |
-| 199xyz@$  | 422abc@$  |
-
-## File Summary
-
-| File Name     | Description                             |
-|---------------|-----------------------------------------|
-| `client.c`    | Handles client operations and user input|
-| `serverM.c`   | Main server that routes requests        |
-| `serverA.c`   | Authenticates members via UDP           |
-| `serverR.c`   | Repository manager for filenames        |
-| `serverD.c`   | Deploys files and logs deployment       |
-| `member.txt`  | Encrypted user credentials              |
-| `filenames.txt` | Repository metadata                   |
-| `Makefile`    | Builds all executables                  |
-| `README.md`   | Project documentation                   |
-
-## Execution Instructions
-
-### 1. Compile All Files
 ```bash
 make all
 ```
 
-### 2. Launch Servers (in separate terminals)
+### 2. Start the servers (each in its own terminal)
+
 ```bash
-./serverM
+./serverM   # start first
 ./serverA
 ./serverR
 ./serverD
 ```
 
-### 3. Start Clients
+### 3. Connect a client
+
 ```bash
+# As a guest (read-only access)
+./client guest guest
+
+# As a registered member (credentials in PROJECT/members.txt)
 ./client <username> <password>
 ```
 
-## Port Allocation
+---
 
-Use static ports based on the last 3 digits of your USC ID (e.g., `xxx = 319`):
+## Demo Walkthrough
 
-| Server    | Protocol | Port Used       |
-|-----------|----------|-----------------|
-| serverA   | UDP      | 21000 + xxx     |
-| serverR   | UDP      | 22000 + xxx     |
-| serverD   | UDP      | 23000 + xxx     |
-| serverM   | UDP      | 24000 + xxx     |
-| serverM   | TCP      | 25000 + xxx     |
+### Guest session
 
-## Assumptions & Notes
+```
+$ ./client guest guest
 
-- All hostnames must be `localhost` (`127.0.0.1`)
-- Use `getsockname()` for dynamically assigned ports
-- Clients can run multiple times; servers stay active
-- Only filenames are handled (no file content transfer)
-- Start the processes in this order: `serverM`, `serverA`, `serverR`, `serverD`, then `client`
-- Comply strictly with on-screen message formats from the spec
+guest guest
+The client is up and running.
+...
+Enter a command: lookup HannahWilliams598
+...
+```
 
-## Reused Code
+Guests can only run `lookup` and only see public files.
 
-Socket boilerplate taken from [Beej’s Guide to Network Programming](http://www.beej.us/guide/bgnet/) and marked in source files.
+### Member session
+
+```
+$ ./client <username> <password>
+
+The client is up and running.
+...
+Enter a command: lookup <username>
+Enter a command: push myfile.txt
+Enter a command: remove oldfile.txt
+Enter a command: deploy
+Enter a command: log
+```
+
+Full command reference:
+
+| Command | Access | Description |
+|---------|--------|-------------|
+| `lookup <username>` | Member + Guest | List files owned by a user |
+| `push <filename>` | Member | Add a file; prompts before overwrite |
+| `remove <filename>` | Member | Delete a file from the repository |
+| `deploy` | Member | Deploy all your files to Server D |
+| `log` | Member | View your operation history |
 
 ---
 
-Author:
-Shravya Shashidhar|USC
+## How It Works
+
+### Authentication flow
+
+1. Client sends `username password` over TCP to Server M
+2. Server M forwards to Server A over UDP
+3. Server A applies a **Caesar cipher** (shift +3 on letters and digits) and compares against `members.txt`
+4. Server M returns `"Valid user"` or `"Invalid user"` to the client
+
+**Caesar cipher examples:**
+
+| Plaintext | Encrypted |
+|-----------|-----------|
+| `Welcome1` | `Zhofrph4` |
+| `199xyz@$` | `422abc@$` |
+
+Special characters are unchanged. Shift wraps around (`z → c`, `9 → 2`).
+
+### Push with overwrite protection
+
+If a file already exists in the repository, Server R flags it and Server M relays a confirmation prompt back to the client before overwriting.
+
+### Deployment
+
+`deploy` triggers Server M to:
+1. Request the user's full file list from Server R
+2. Forward the list to Server D
+3. Server D appends all filenames to `deployed.txt` and confirms
+
+---
+
+## Project Structure
+
+```
+PROJECT/
+├── serverM.c / serverM.h   # Main server — TCP listener + UDP dispatcher
+├── serverA.c / serverA.h   # Auth server — Caesar cipher + credential check
+├── serverR.c / serverR.h   # Repo server — file metadata management
+├── serverD.c / serverD.h   # Deploy server — deployment logger
+├── client.c  / client.h    # Client — CLI interface
+├── members.txt             # Encrypted user credentials
+├── filenames.txt           # Repository file metadata
+├── deployed.txt            # Deployment log (written at runtime)
+├── loghistory              # Operation history log (written at runtime)
+└── Makefile
+```
+
+---
+
+## Port Allocation
+
+| Process | Protocol | Port |
+|---------|----------|------|
+| Server A | UDP | 21542 |
+| Server R | UDP | 22542 |
+| Server D | UDP | 23542 |
+| Server M | UDP | 24542 |
+| Server M | TCP | 25542 |
+
+---
+
+## Tech Stack
+
+- **Language**: C (POSIX)
+- **Transport**: TCP (client ↔ Server M), UDP (inter-server)
+- **Concurrency**: `select()` multiplexing for multiple simultaneous clients
+- **Persistence**: Plain-text flat files
+- **Build**: GNU Make + GCC
+
+---
+
+## Notes
+
+- All processes run on `localhost` (`127.0.0.1`)
+- Servers stay running between client connections; restart is not required between sessions
+- Only filenames are tracked — no file content is transferred
+- The `log` command stores up to 1024 operations in memory per session
+
+---
+
+*Built by Shravya Shashidhar — EE450 Socket Programming, USC*
