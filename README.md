@@ -1,10 +1,10 @@
-# Git450 — Distributed File Repository System
+# Switchboard — Distributed File Repository System
 
 A simplified, GitHub-inspired file repository built entirely in C using UNIX sockets. Five processes communicate over TCP and UDP to handle authentication, file management, and deployment across a distributed architecture.
 
 ---
 
-## Under the Hood
+## Architecture
 
 ```
   ╔══════════════════════════════════════════════════════╗
